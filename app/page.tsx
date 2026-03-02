@@ -279,7 +279,7 @@ export default function Home() {
         </nav>
 
         <div className="hero">
-          <h1 className="hero-title">Research anything,<br />instantly.</h1>
+          <h1 className="hero-title">Maddie anything,<br />instantly.</h1>
           <p className="hero-sub">Ask a question. Multiple AI agents search the web in parallel and synthesize a comprehensive report.</p>
 
           <div className="search-wrap">
@@ -300,7 +300,7 @@ export default function Home() {
 
           <div className="agent-selector">
             <span className="agent-selector-label">Agents:</span>
-            {[2, 3, 4, 6].map(n => (
+            {[2, 3, 4, 6, 12, 24].map(n => (
               <button
                 key={n}
                 onClick={() => setNumAgents(n)}
