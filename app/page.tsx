@@ -34,7 +34,7 @@ export default function Home() {
     setReport('')
     setError('')
 
-    const url = `http://localhost:8000/api/research/stream?question=${encodeURIComponent(question)}&num_agents=${numAgents}`
+    const url = `https://researcher-api-bpkt.onrender.com/api/research/stream?question=${encodeURIComponent(question)}&num_agents=${numAgents}`
     const eventSource = new EventSource(url)
 
     eventSource.onmessage = (e) => {
