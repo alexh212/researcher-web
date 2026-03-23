@@ -114,7 +114,7 @@ export default function Home() {
 
         .nav-logo { font-size: 15px; font-weight: 600; color: #ededed; letter-spacing: -0.3px; }
 
-        .nav-right { display: flex; align-items: center; gap: 12px; }
+        .nav-left { display: flex; align-items: center; gap: 12px; }
 
         .nav-github {
           font-size: 13px; color: #888; text-decoration: none;
@@ -284,16 +284,16 @@ export default function Home() {
 
       <div className="page">
         <nav className="nav">
-          <span className="nav-logo">Researcher</span>
-          <div className="nav-right">
+          <div className="nav-left">
+            <span className="nav-logo">Researcher</span>
             <a className="nav-github" href="https://github.com/alexh212" target="_blank" rel="noopener noreferrer">
               github.com/alexh212
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M4.5 11.5L11.5 4.5M11.5 4.5H6M11.5 4.5V10" />
               </svg>
             </a>
-            <span className="nav-badge">Multi-agent</span>
           </div>
+          <span className="nav-badge">Multi-agent</span>
         </nav>
 
         <div className="hero">
