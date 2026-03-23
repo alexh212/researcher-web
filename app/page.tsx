@@ -114,6 +114,16 @@ export default function Home() {
 
         .nav-logo { font-size: 15px; font-weight: 600; color: #ededed; letter-spacing: -0.3px; }
 
+        .nav-right { display: flex; align-items: center; gap: 12px; }
+
+        .nav-github {
+          font-size: 13px; color: #888; text-decoration: none;
+          display: flex; align-items: center; gap: 5px;
+          transition: color 0.15s ease;
+        }
+        .nav-github:hover { color: #ededed; }
+        .nav-github svg { width: 14px; height: 14px; flex-shrink: 0; }
+
         .nav-badge {
           font-size: 11px; color: #666; background: #161616;
           border: 1px solid #222; border-radius: 20px; padding: 3px 10px;
@@ -275,7 +285,15 @@ export default function Home() {
       <div className="page">
         <nav className="nav">
           <span className="nav-logo">Researcher</span>
-          <span className="nav-badge">Multi-agent</span>
+          <div className="nav-right">
+            <a className="nav-github" href="https://github.com/alexh212" target="_blank" rel="noopener noreferrer">
+              github.com/alexh212
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M4.5 11.5L11.5 4.5M11.5 4.5H6M11.5 4.5V10" />
+              </svg>
+            </a>
+            <span className="nav-badge">Multi-agent</span>
+          </div>
         </nav>
 
         <div className="hero">
