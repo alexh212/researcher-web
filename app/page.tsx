@@ -285,7 +285,7 @@ export default function Home() {
       <div className="page">
         <nav className="nav">
           <div className="nav-left">
-            <span className="nav-logo">Researcher</span>
+            <span className="nav-logo">Scout</span>
             <a className="nav-github" href="https://github.com/alexh212" target="_blank" rel="noopener noreferrer">
               github.com/alexh212
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: 'Researcher',
+  title: 'Scout',
   description: 'Multi-agent AI research assistant',
 }
 
