@@ -3,12 +3,26 @@
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 
-type Status = 'idle' | 'planning' | 'researching' | 'writing' | 'done' | 'error'
+type Status = 'idle' | 'planning' | 'researching' | 'writing' | 'evaluating' | 'done' | 'error'
 
 interface AgentStatus {
   id: number
   question: string
   status: 'waiting' | 'running' | 'done'
+}
+
+interface EvaluationData {
+  scores?: {
+    relevance?: number
+    accuracy?: number
+    source_coverage?: number
+    coherence?: number
+    completeness?: number
+  }
+  overall_score?: number
+  strengths?: string[]
+  improvements?: string[]
+  flags?: string[]
 }
 
 export default function Home() {
@@ -17,6 +31,7 @@ export default function Home() {
   const [status, setStatus] = useState<Status>('idle')
   const [agents, setAgents] = useState<AgentStatus[]>([])
   const [report, setReport] = useState('')
+  const [evaluation, setEvaluation] = useState<EvaluationData | null>(null)
   const [error, setError] = useState('')
   const reportRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -32,6 +47,7 @@ export default function Home() {
     setStatus('planning')
     setAgents([])
     setReport('')
+    setEvaluation(null)
     setError('')
 
     const url = `https://researcher-api-bpkt.onrender.com/api/research/stream?question=${encodeURIComponent(question)}&num_agents=${numAgents}`
@@ -44,6 +60,7 @@ export default function Home() {
         if (data.message.includes('Planning')) setStatus('planning')
         if (data.message.includes('Researching') || data.message.includes('cached')) setStatus('researching')
         if (data.message.includes('Writing')) setStatus('writing')
+        if (data.message.includes('Evaluating')) setStatus('evaluating')
       }
 
       if (data.type === 'sub_questions') {
@@ -63,6 +80,10 @@ export default function Home() {
 
       if (data.type === 'report_chunk') {
         setReport(prev => prev + data.chunk)
+      }
+
+      if (data.type === 'evaluation') {
+        setEvaluation(data.data)
       }
 
       if (data.type === 'done') {
@@ -280,6 +301,69 @@ export default function Home() {
           background: #1a0a0a; border: 1px solid #3a1a1a; border-radius: 10px;
           padding: 16px; font-size: 13px; color: #f87171;
         }
+
+        .evaluation-wrap {
+          margin-top: 24px;
+          background: #101010;
+          border: 1px solid #1d1d1d;
+          border-radius: 12px;
+          padding: 18px;
+        }
+
+        .evaluation-title {
+          font-size: 13px;
+          font-weight: 600;
+          color: #ededed;
+          margin-bottom: 14px;
+        }
+
+        .evaluation-grid {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 8px;
+          margin-bottom: 14px;
+        }
+
+        .score-chip {
+          background: #151515;
+          border: 1px solid #232323;
+          border-radius: 8px;
+          padding: 10px;
+        }
+
+        .score-chip-label {
+          font-size: 11px;
+          color: #777;
+          text-transform: capitalize;
+          margin-bottom: 4px;
+        }
+
+        .score-chip-value {
+          font-size: 14px;
+          color: #ededed;
+          font-weight: 600;
+        }
+
+        .overall-score {
+          font-size: 12px;
+          color: #9ca3af;
+          margin-bottom: 14px;
+        }
+
+        .eval-list-title {
+          font-size: 12px;
+          color: #cfcfcf;
+          margin: 10px 0 6px;
+          font-weight: 500;
+        }
+
+        .eval-list {
+          margin: 0;
+          padding-left: 18px;
+          color: #9a9a9a;
+          font-size: 12px;
+          line-height: 1.6;
+        }
       `}</style>
 
       <div className="page">
@@ -338,6 +422,7 @@ export default function Home() {
               {status === 'planning' && 'Breaking down your question...'}
               {status === 'researching' && 'Running agents in parallel...'}
               {status === 'writing' && 'Synthesizing report...'}
+              {status === 'evaluating' && 'Evaluating report quality...'}
               {status === 'done' && 'Research complete'}
               {status === 'error' && 'Something went wrong'}
             </div>
@@ -373,6 +458,60 @@ export default function Home() {
                 <ReactMarkdown>{report}</ReactMarkdown>
                 {status === 'writing' && <span className="cursor" />}
               </div>
+
+              {evaluation && (
+                <div className="evaluation-wrap">
+                  <div className="evaluation-title">Quality Evaluation</div>
+
+                  <div className="overall-score">
+                    Overall score: {evaluation.overall_score ?? '-'} / 5
+                  </div>
+
+                  {evaluation.scores && (
+                    <div className="evaluation-grid">
+                      {Object.entries(evaluation.scores).map(([key, value]) => (
+                        <div className="score-chip" key={key}>
+                          <div className="score-chip-label">{key.replace('_', ' ')}</div>
+                          <div className="score-chip-value">{value ?? '-'} / 5</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {evaluation.strengths && evaluation.strengths.length > 0 && (
+                    <>
+                      <div className="eval-list-title">Strengths</div>
+                      <ul className="eval-list">
+                        {evaluation.strengths.map((item, i) => (
+                          <li key={`s-${i}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+
+                  {evaluation.improvements && evaluation.improvements.length > 0 && (
+                    <>
+                      <div className="eval-list-title">Improvements</div>
+                      <ul className="eval-list">
+                        {evaluation.improvements.map((item, i) => (
+                          <li key={`i-${i}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+
+                  {evaluation.flags && evaluation.flags.length > 0 && (
+                    <>
+                      <div className="eval-list-title">Flags</div>
+                      <ul className="eval-list">
+                        {evaluation.flags.map((item, i) => (
+                          <li key={`f-${i}`}>{item}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
