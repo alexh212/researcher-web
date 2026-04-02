@@ -40,6 +40,13 @@ export default function Home() {
     inputRef.current?.focus()
   }, [])
 
+  const getScoreClass = (value?: number) => {
+    if (typeof value !== 'number') return 'neutral'
+    if (value <= 2) return 'low'
+    if (value === 3) return 'medium'
+    return 'high'
+  }
+
   const handleResearch = async () => {
     if (!question.trim()) return
     if (status !== 'idle' && status !== 'done' && status !== 'error') return
@@ -331,6 +338,21 @@ export default function Home() {
           padding: 10px;
         }
 
+        .score-chip.low {
+          border-color: #4a1d1d;
+          background: #1c1111;
+        }
+
+        .score-chip.medium {
+          border-color: #4a3a1d;
+          background: #1d1710;
+        }
+
+        .score-chip.high {
+          border-color: #1f4a2b;
+          background: #102015;
+        }
+
         .score-chip-label {
           font-size: 11px;
           color: #777;
@@ -344,11 +366,19 @@ export default function Home() {
           font-weight: 600;
         }
 
+        .score-chip-value.low { color: #fca5a5; }
+        .score-chip-value.medium { color: #fcd34d; }
+        .score-chip-value.high { color: #86efac; }
+
         .overall-score {
           font-size: 12px;
           color: #9ca3af;
           margin-bottom: 14px;
         }
+
+        .overall-score.bad { color: #fca5a5; }
+        .overall-score.okay { color: #fcd34d; }
+        .overall-score.good { color: #86efac; }
 
         .eval-list-title {
           font-size: 12px;
@@ -463,16 +493,24 @@ export default function Home() {
                 <div className="evaluation-wrap">
                   <div className="evaluation-title">Quality Evaluation</div>
 
-                  <div className="overall-score">
+                  <div className={`overall-score ${
+                    typeof evaluation.overall_score === 'number'
+                      ? evaluation.overall_score <= 2
+                        ? 'bad'
+                        : evaluation.overall_score === 3
+                          ? 'okay'
+                          : 'good'
+                      : ''
+                  }`}>
                     Overall score: {evaluation.overall_score ?? '-'} / 5
                   </div>
 
                   {evaluation.scores && (
                     <div className="evaluation-grid">
                       {Object.entries(evaluation.scores).map(([key, value]) => (
-                        <div className="score-chip" key={key}>
+                        <div className={`score-chip ${getScoreClass(value)}`} key={key}>
                           <div className="score-chip-label">{key.replace('_', ' ')}</div>
-                          <div className="score-chip-value">{value ?? '-'} / 5</div>
+                          <div className={`score-chip-value ${getScoreClass(value)}`}>{value ?? '-'} / 5</div>
                         </div>
                       ))}
                     </div>
