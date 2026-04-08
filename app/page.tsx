@@ -32,6 +32,7 @@ export default function Home() {
   const [agents, setAgents] = useState<AgentStatus[]>([])
   const [report, setReport] = useState('')
   const [evaluation, setEvaluation] = useState<EvaluationData | null>(null)
+  const [evalOpen, setEvalOpen] = useState(false)
   const [error, setError] = useState('')
   const reportRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -317,12 +318,22 @@ export default function Home() {
           padding: 18px;
         }
 
+        .eval-toggle {
+          display: flex; align-items: center; justify-content: space-between;
+          background: none; border: none; width: 100%; padding: 0; cursor: pointer;
+          margin-bottom: 0;
+        }
+
         .evaluation-title {
           font-size: 13px;
           font-weight: 600;
           color: #ededed;
-          margin-bottom: 14px;
         }
+
+        .eval-chevron { font-size: 12px; color: #555; transition: transform 0.2s; }
+        .eval-chevron.open { transform: rotate(180deg); }
+
+        .eval-body { margin-top: 14px; }
 
         .evaluation-grid {
           display: grid;
@@ -376,9 +387,9 @@ export default function Home() {
           margin-bottom: 14px;
         }
 
-        .overall-score.bad { color: #fca5a5; }
-        .overall-score.okay { color: #fcd34d; }
-        .overall-score.good { color: #86efac; }
+        .overall-score.low { color: #fca5a5; }
+        .overall-score.medium { color: #fcd34d; }
+        .overall-score.high { color: #86efac; }
 
         .eval-list-title {
           font-size: 12px;
@@ -491,62 +502,61 @@ export default function Home() {
 
               {evaluation && (
                 <div className="evaluation-wrap">
-                  <div className="evaluation-title">Quality Evaluation</div>
+                  <button className="eval-toggle" onClick={() => setEvalOpen(o => !o)}>
+                    <span className="evaluation-title">Quality Evaluation</span>
+                    <span className={`eval-chevron ${evalOpen ? 'open' : ''}`}>▾</span>
+                  </button>
 
-                  <div className={`overall-score ${
-                    typeof evaluation.overall_score === 'number'
-                      ? evaluation.overall_score <= 2
-                        ? 'bad'
-                        : evaluation.overall_score === 3
-                          ? 'okay'
-                          : 'good'
-                      : ''
-                  }`}>
-                    Overall score: {evaluation.overall_score ?? '-'} / 5
-                  </div>
+                  {evalOpen && (
+                    <div className="eval-body">
+                      <div className={`overall-score ${getScoreClass(evaluation.overall_score)}`}>
+                        Overall score: {evaluation.overall_score ?? '-'} / 5
+                      </div>
 
-                  {evaluation.scores && (
-                    <div className="evaluation-grid">
-                      {Object.entries(evaluation.scores).map(([key, value]) => (
-                        <div className={`score-chip ${getScoreClass(value)}`} key={key}>
-                          <div className="score-chip-label">{key.replace('_', ' ')}</div>
-                          <div className={`score-chip-value ${getScoreClass(value)}`}>{value ?? '-'} / 5</div>
+                      {evaluation.scores && (
+                        <div className="evaluation-grid">
+                          {Object.entries(evaluation.scores).map(([key, value]) => (
+                            <div className={`score-chip ${getScoreClass(value)}`} key={key}>
+                              <div className="score-chip-label">{key.replace('_', ' ')}</div>
+                              <div className={`score-chip-value ${getScoreClass(value)}`}>{value ?? '-'} / 5</div>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      )}
+
+                      {evaluation.strengths && evaluation.strengths.length > 0 && (
+                        <>
+                          <div className="eval-list-title">Strengths</div>
+                          <ul className="eval-list">
+                            {evaluation.strengths.map((item, i) => (
+                              <li key={`s-${i}`}>{item}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+
+                      {evaluation.improvements && evaluation.improvements.length > 0 && (
+                        <>
+                          <div className="eval-list-title">Improvements</div>
+                          <ul className="eval-list">
+                            {evaluation.improvements.map((item, i) => (
+                              <li key={`i-${i}`}>{item}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+
+                      {evaluation.flags && evaluation.flags.length > 0 && (
+                        <>
+                          <div className="eval-list-title">Flags</div>
+                          <ul className="eval-list">
+                            {evaluation.flags.map((item, i) => (
+                              <li key={`f-${i}`}>{item}</li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
                     </div>
-                  )}
-
-                  {evaluation.strengths && evaluation.strengths.length > 0 && (
-                    <>
-                      <div className="eval-list-title">Strengths</div>
-                      <ul className="eval-list">
-                        {evaluation.strengths.map((item, i) => (
-                          <li key={`s-${i}`}>{item}</li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-
-                  {evaluation.improvements && evaluation.improvements.length > 0 && (
-                    <>
-                      <div className="eval-list-title">Improvements</div>
-                      <ul className="eval-list">
-                        {evaluation.improvements.map((item, i) => (
-                          <li key={`i-${i}`}>{item}</li>
-                        ))}
-                      </ul>
-                    </>
-                  )}
-
-                  {evaluation.flags && evaluation.flags.length > 0 && (
-                    <>
-                      <div className="eval-list-title">Flags</div>
-                      <ul className="eval-list">
-                        {evaluation.flags.map((item, i) => (
-                          <li key={`f-${i}`}>{item}</li>
-                        ))}
-                      </ul>
-                    </>
                   )}
                 </div>
               )}
