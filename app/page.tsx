@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://researcher-api-bpkt.onrender.com'
 
 type Status = 'idle' | 'waking' | 'planning' | 'researching' | 'writing' | 'evaluating' | 'done' | 'error'
 
