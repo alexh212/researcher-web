@@ -51,6 +51,7 @@ export default function Home() {
   const reportRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const wakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const eventSourceRef = useRef<EventSource | null>(null)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -75,6 +76,7 @@ export default function Home() {
 
     const url = `${API_URL}/api/research/stream?question=${encodeURIComponent(question)}&num_agents=${numAgents}`
     const eventSource = new EventSource(url)
+    eventSourceRef.current = eventSource
 
     wakeTimerRef.current = setTimeout(() => {
       setStatus(s => s === 'planning' ? 'waking' : s)
@@ -88,10 +90,10 @@ export default function Home() {
       const data = JSON.parse(e.data)
 
       if (data.type === 'status') {
-        if (data.message.includes('Planning')) setStatus('planning')
-        if (data.message.includes('Researching') || data.message.includes('cached')) setStatus('researching')
-        if (data.message.includes('Writing')) setStatus('writing')
-        if (data.message.includes('Evaluating')) setStatus('evaluating')
+        if (data.status) setStatus(data.status)
+        if (data.status === 'writing') {
+          setAgents(prev => prev.map(a => ({ ...a, status: 'done' })))
+        }
       }
 
       if (data.type === 'sub_questions') {
@@ -137,6 +139,16 @@ export default function Home() {
     }
   }
 
+  const handleCancel = () => {
+    if (wakeTimerRef.current) clearTimeout(wakeTimerRef.current)
+    eventSourceRef.current?.close()
+    eventSourceRef.current = null
+    setStatus('idle')
+    setAgents([])
+    setReport('')
+    setEvaluation(null)
+  }
+
   const isLoading = status !== 'idle' && status !== 'done' && status !== 'error'
 
   return (
@@ -172,6 +184,9 @@ export default function Home() {
           <button onClick={handleResearch} disabled={isLoading} className="search-btn">
             {isLoading ? 'Researching...' : 'Research'}
           </button>
+          {isLoading && (
+            <button onClick={handleCancel} className="cancel-btn">Cancel</button>
+          )}
         </div>
 
         <div className="agent-selector">
