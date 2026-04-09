@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL
 
-type Status = 'idle' | 'planning' | 'researching' | 'writing' | 'evaluating' | 'done' | 'error'
+type Status = 'idle' | 'waking' | 'planning' | 'researching' | 'writing' | 'evaluating' | 'done' | 'error'
 
 interface AgentStatus {
   id: number
@@ -50,6 +50,7 @@ export default function Home() {
   const [error, setError] = useState('')
   const reportRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const wakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -75,7 +76,15 @@ export default function Home() {
     const url = `${API_URL}/api/research/stream?question=${encodeURIComponent(question)}&num_agents=${numAgents}`
     const eventSource = new EventSource(url)
 
+    wakeTimerRef.current = setTimeout(() => {
+      setStatus(s => s === 'planning' ? 'waking' : s)
+    }, 6000)
+
     eventSource.onmessage = (e) => {
+      if (wakeTimerRef.current) {
+        clearTimeout(wakeTimerRef.current)
+        wakeTimerRef.current = null
+      }
       const data = JSON.parse(e.data)
 
       if (data.type === 'status') {
@@ -184,6 +193,7 @@ export default function Home() {
         {status !== 'idle' && (
           <div className="status-row">
             {isLoading ? <div className="spinner" /> : <div className="check">✓</div>}
+            {status === 'waking' && 'Server is waking up, hang tight...'}
             {status === 'planning' && 'Breaking down your question...'}
             {status === 'researching' && 'Running agents in parallel...'}
             {status === 'writing' && 'Synthesizing report...'}
