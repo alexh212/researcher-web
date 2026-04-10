@@ -32,11 +32,10 @@ body {
 
 .nav-github {
   font-size: 13px; color: #888; text-decoration: none;
-  display: flex; align-items: center; gap: 5px;
+  display: inline-flex; align-items: center; gap: 7px;
   transition: color 0.15s ease;
 }
 .nav-github:hover { color: #ededed; }
-.nav-github svg { width: 14px; height: 14px; flex-shrink: 0; }
 
 .nav-badge {
   font-size: 11px; color: #666; background: #161616;
