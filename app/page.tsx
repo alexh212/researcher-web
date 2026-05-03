@@ -237,17 +237,6 @@ export default function Home() {
     setEvaluation(null)
   }
 
-  const handleGoogleSignIn = async () => {
-    setAuthMessage('')
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: window.location.origin },
-    })
-    if (authError) {
-      setAuthMessage(authError.message)
-    }
-  }
-
   const handleMagicLink = async () => {
     if (!email.trim()) {
       setAuthMessage('Enter an email address for magic link sign-in.')
@@ -312,7 +301,6 @@ export default function Home() {
 
         {!authLoading && !user && (
           <div className="search-wrap">
-            <button onClick={handleGoogleSignIn} className="search-btn">Continue with Google</button>
             <input
               type="email"
               value={email}
@@ -320,7 +308,7 @@ export default function Home() {
               placeholder="Email for magic link"
               className="search-input"
             />
-            <button onClick={handleMagicLink} className="agent-btn">Send magic link</button>
+            <button onClick={handleMagicLink} className="search-btn">Send magic link</button>
           </div>
         )}
 
