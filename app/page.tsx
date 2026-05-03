@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect } from 'react'
 import ReactMarkdown from 'react-markdown'
+import type { Session, User } from '@supabase/supabase-js'
+import { getSupabaseBrowserClient } from '../lib/supabase-browser'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://researcher-api-bpkt.onrender.com'
 
@@ -40,6 +42,7 @@ function EvalList({ title, items }: { title: string; items: string[] }) {
 }
 
 export default function Home() {
+  const supabase = getSupabaseBrowserClient()
   const [question, setQuestion] = useState('')
   const [numAgents, setNumAgents] = useState(4)
   const [status, setStatus] = useState<Status>('idle')
@@ -48,14 +51,42 @@ export default function Home() {
   const [evaluation, setEvaluation] = useState<EvaluationData | null>(null)
   const [evalOpen, setEvalOpen] = useState(false)
   const [error, setError] = useState('')
+  const [email, setEmail] = useState('')
+  const [authLoading, setAuthLoading] = useState(true)
+  const [authMessage, setAuthMessage] = useState('')
+  const [session, setSession] = useState<Session | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const reportRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const wakeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const eventSourceRef = useRef<EventSource | null>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
+
+  useEffect(() => {
+    const loadSession = async () => {
+      const { data } = await supabase.auth.getSession()
+      setSession(data.session)
+      setUser(data.session?.user ?? null)
+      setAuthLoading(false)
+    }
+
+    loadSession().catch(() => {
+      setAuthLoading(false)
+    })
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession)
+      setUser(nextSession?.user ?? null)
+      setAuthLoading(false)
+    })
+
+    return () => {
+      authListener.subscription.unsubscribe()
+    }
+  }, [supabase])
 
   const getScoreClass = (value?: number) => {
     if (typeof value !== 'number') return 'neutral'
@@ -64,9 +95,45 @@ export default function Home() {
     return 'high'
   }
 
+  const consumeSseStream = async (
+    response: Response,
+    onMessage: (payload: string) => void,
+  ) => {
+    const reader = response.body?.getReader()
+    if (!reader) throw new Error('Missing response body')
+
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+      const { value, done } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      const events = buffer.split('\n\n')
+      buffer = events.pop() ?? ''
+
+      for (const eventText of events) {
+        const dataLines = eventText
+          .split('\n')
+          .filter((line) => line.startsWith('data:'))
+          .map((line) => line.slice(5).trimStart())
+
+        if (dataLines.length > 0) {
+          onMessage(dataLines.join('\n'))
+        }
+      }
+    }
+  }
+
   const handleResearch = async () => {
     if (!question.trim()) return
     if (status !== 'idle' && status !== 'done' && status !== 'error') return
+    if (!session?.access_token) {
+      setError('Sign in to run research.')
+      setStatus('error')
+      return
+    }
 
     setStatus('planning')
     setAgents([])
@@ -75,78 +142,139 @@ export default function Home() {
     setError('')
 
     const url = `${API_URL}/api/research/stream?question=${encodeURIComponent(question)}&num_agents=${numAgents}`
-    const eventSource = new EventSource(url)
-    eventSourceRef.current = eventSource
+    const controller = new AbortController()
+    abortControllerRef.current = controller
 
     wakeTimerRef.current = setTimeout(() => {
       setStatus(s => s === 'planning' ? 'waking' : s)
     }, 6000)
 
-    eventSource.onmessage = (e) => {
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        signal: controller.signal,
+      })
+
+      if (!response.ok) {
+        const message = response.status === 401
+          ? 'You are not authenticated. Please sign in again.'
+          : `Request failed (${response.status})`
+        throw new Error(message)
+      }
+
+      await consumeSseStream(response, (payload) => {
+        if (wakeTimerRef.current) {
+          clearTimeout(wakeTimerRef.current)
+          wakeTimerRef.current = null
+        }
+        const data = JSON.parse(payload)
+
+        if (data.type === 'status') {
+          if (data.status) setStatus(data.status)
+          if (data.status === 'writing') {
+            setAgents(prev => prev.map(a => ({ ...a, status: 'done' })))
+          }
+        }
+
+        if (data.type === 'sub_questions') {
+          setAgents(data.data.map((q: string, i: number) => ({
+            id: i,
+            question: q,
+            status: 'waiting'
+          })))
+          setTimeout(() => {
+            setAgents(prev => prev.map(a => ({ ...a, status: 'running' })))
+          }, 300)
+        }
+
+        if (data.type === 'research_complete') {
+          setAgents(prev => prev.map(a => ({ ...a, status: 'done' })))
+        }
+
+        if (data.type === 'report_chunk') {
+          setReport(prev => prev + data.chunk)
+        }
+
+        if (data.type === 'evaluation') {
+          setEvaluation(data.data)
+        }
+
+        if (data.type === 'done') {
+          setStatus('done')
+          setTimeout(() => {
+            reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+          }, 100)
+        }
+
+        if (data.type === 'error') {
+          setError(data.message)
+          setStatus('error')
+        }
+      })
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return
+      setError(err instanceof Error ? err.message : 'Unknown error')
+      setStatus('error')
+    } finally {
       if (wakeTimerRef.current) {
         clearTimeout(wakeTimerRef.current)
         wakeTimerRef.current = null
       }
-      const data = JSON.parse(e.data)
-
-      if (data.type === 'status') {
-        if (data.status) setStatus(data.status)
-        if (data.status === 'writing') {
-          setAgents(prev => prev.map(a => ({ ...a, status: 'done' })))
-        }
-      }
-
-      if (data.type === 'sub_questions') {
-        setAgents(data.data.map((q: string, i: number) => ({
-          id: i,
-          question: q,
-          status: 'waiting'
-        })))
-        setTimeout(() => {
-          setAgents(prev => prev.map(a => ({ ...a, status: 'running' })))
-        }, 300)
-      }
-
-      if (data.type === 'research_complete') {
-        setAgents(prev => prev.map(a => ({ ...a, status: 'done' })))
-      }
-
-      if (data.type === 'report_chunk') {
-        setReport(prev => prev + data.chunk)
-      }
-
-      if (data.type === 'evaluation') {
-        setEvaluation(data.data)
-      }
-
-      if (data.type === 'done') {
-        setStatus('done')
-        eventSource.close()
-        setTimeout(() => {
-          reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }, 100)
-      }
-
-      if (data.type === 'error') {
-        setError(data.message)
-        setStatus('error')
-        eventSource.close()
-      }
-    }
-
-    eventSource.onerror = () => {
-      eventSource.close()
+      abortControllerRef.current = null
     }
   }
 
   const handleCancel = () => {
     if (wakeTimerRef.current) clearTimeout(wakeTimerRef.current)
-    eventSourceRef.current?.close()
-    eventSourceRef.current = null
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
     setStatus('idle')
     setAgents([])
     setReport('')
     setEvaluation(null)
+  }
+
+  const handleGoogleSignIn = async () => {
+    setAuthMessage('')
+    const { error: authError } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    })
+    if (authError) {
+      setAuthMessage(authError.message)
+    }
+  }
+
+  const handleMagicLink = async () => {
+    if (!email.trim()) {
+      setAuthMessage('Enter an email address for magic link sign-in.')
+      return
+    }
+
+    setAuthMessage('')
+    const { error: authError } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin },
+    })
+
+    if (authError) {
+      setAuthMessage(authError.message)
+      return
+    }
+
+    setAuthMessage('Magic link sent. Check your inbox.')
+  }
+
+  const handleSignOut = async () => {
+    await supabase.auth.signOut()
+    setStatus('idle')
+    setAgents([])
+    setReport('')
+    setEvaluation(null)
+    setError('')
   }
 
   const isLoading = status !== 'idle' && status !== 'done' && status !== 'error'
@@ -166,12 +294,37 @@ export default function Home() {
             </svg>
           </a>
         </div>
-        <span className="nav-badge">Multi-agent</span>
+        {authLoading ? (
+          <span className="nav-badge">Loading auth...</span>
+        ) : user ? (
+          <div className="nav-left">
+            <span className="nav-badge">{user.email}</span>
+            <button className="agent-btn" onClick={handleSignOut}>Sign out</button>
+          </div>
+        ) : (
+          <span className="nav-badge">Signed out</span>
+        )}
       </nav>
 
       <div className="hero">
         <h1 className="hero-title">Research anything,<br />instantly.</h1>
         <p className="hero-sub">Ask a question. Multiple AI agents search the web in parallel and synthesize a comprehensive report.</p>
+
+        {!authLoading && !user && (
+          <div className="search-wrap">
+            <button onClick={handleGoogleSignIn} className="search-btn">Continue with Google</button>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="Email for magic link"
+              className="search-input"
+            />
+            <button onClick={handleMagicLink} className="agent-btn">Send magic link</button>
+          </div>
+        )}
+
+        {authMessage && <div className="status-row">{authMessage}</div>}
 
         <div className="search-wrap">
           <input
@@ -182,9 +335,9 @@ export default function Home() {
             onKeyDown={e => e.key === 'Enter' && handleResearch()}
             placeholder="What do you want to research?"
             className="search-input"
-            disabled={isLoading}
+            disabled={isLoading || !user}
           />
-          <button onClick={handleResearch} disabled={isLoading} className="search-btn">
+          <button onClick={handleResearch} disabled={isLoading || !user} className="search-btn">
             {isLoading ? 'Researching...' : 'Research'}
           </button>
           {isLoading && (
