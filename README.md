@@ -40,9 +40,9 @@ npm run build && npm run start   # production build check
 - Because the wake timer only clears inside `onmessage`, a connection that fails before any frame arrives still shows "Server is waking up, hang tight..." at 6 seconds, which is misleading for what's actually a dead connection.
 - Markdown tables don't render. `react-markdown` is used with no plugins, so GFM is off, while the backend's synthesizer prompt explicitly asks the model to use tables. Any table shows up as raw pipe characters.
 - Tailwind is dead weight. `globals.css` uses Tailwind v4's `@import "tailwindcss"` with no `@config` or `@plugin` directive, so `tailwind.config.ts` and the `@tailwindcss/typography` plugin it registers are never loaded. There are zero Tailwind utility classes in `page.tsx`. `.prose` is hand-written CSS, unrelated to the typography plugin.
-- No responsive design. `globals.css` has zero `@media` queries; `.agents` is hardcoded to a two-column grid, so the 12-agent option produces six cramped rows on a phone.
-- No tests, no CI, no error boundary. A malformed SSE frame throws inside `JSON.parse` in `onmessage` and takes down the render with no fallback UI.
-- State is entirely ephemeral — no history, no URL state, no persistence. Refreshing mid-run or after a run loses the report, even though the backend does save the session server-side.
+- Mobile layout is limited. The page uses fluid widths and maximum widths, but has no breakpoint-specific rules. `.agents` stays in a two-column grid, including with 12 agents on a narrow screen.
+- No tests, no CI, no error boundary. A malformed SSE frame throws inside `JSON.parse` in `onmessage`, aborting that event handler without a user-facing fallback. This does not by itself establish that React rendering crashes.
+- State is entirely ephemeral — no history, no URL state, no persistence. Refreshing mid-run or after a run loses the report, while the backend attempts a server-side save. Successful deployed persistence has not been verified.
 - Backend CORS is a hardcoded allowlist of three origins (localhost:3000 and two specific Vercel hostnames), so a new Vercel preview deployment of this frontend will fail against the production API with the same swallowed-error behavior described above.
 - The GitHub link in the nav points to a personal profile, not to this repository.
 
